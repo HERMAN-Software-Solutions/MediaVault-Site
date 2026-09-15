@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: "googlee083547305f9a958",
+  google: "ARKdvcChjPgHXFnujH-TH_CYT-XjvmN2ATFRLXfxG24",
   },
 };
 
@@ -112,9 +112,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     sameAs: [
       "https://x.com/JiangSalim1",
       "https://www.tiktok.com/@jaingsalim1",
-      "https://www.facebook.com/jiangsalim1",
+      "https://www.tiktok.com/@hermansoftwaresolutions?_r=1&_t=ZS-99ixYNadBBK",
       "https://www.instagram.com/jiang_salim",
-      "https://youtube.com/@jaingsalim1845",
+      "https://www.youtube.com/@HermanSoftwareSolutions",
     ],
   };
 
@@ -170,7 +170,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           crossOrigin="anonymous"
         />
       </head>
-      <body className="flex min-h-screen flex-col bg-white text-charcoal dark:bg-navy-dark dark:text-gray-light transition-colors">
+      <body className="flex min-h-screen flex-col transition-colors">
         <SongProvider>
           {children}
           <MiniPlayer />

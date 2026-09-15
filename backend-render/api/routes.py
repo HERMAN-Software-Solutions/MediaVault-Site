@@ -171,3 +171,121 @@ async def download_video(video_id: str, quality: str = Query("720")):
         f"{Y2MATE_BASE}/convert/?videoId={video_id}",
         status_code=302
     )
+
+@router.get("/iptv/channels")
+async def get_iptv_channels(country: str = Query(""), category: str = Query("")):
+    """Get free legal IPTV channels from iptv-org"""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            channels_res = await client.get("https://iptv-org.github.io/api/channels.json")
+            logos_res = await client.get("https://iptv-org.github.io/api/logos.json")
+            streams_res = await client.get("https://iptv-org.github.io/api/streams.json")
+
+            channels = channels_res.json()
+            logos = logos_res.json()
+            streams = streams_res.json()
+
+            # Logo lookup
+            logo_map = {}
+            for l in logos:
+                cid = l.get("channel")
+                if cid and l.get("url") and cid not in logo_map:
+                    logo_map[cid] = l["url"]
+
+            # Stream lookup — NO status filter, use channel field directly
+            stream_map = {}
+            for s in streams:
+                cid = s.get("channel")
+                url = s.get("url", "")
+                # Only accept HTTPS streams — HTTP will be blocked on our HTTPS site
+               if cid and url and url.startswith("https://") and cid not in stream_map:
+                  stream_map[cid] = url
+
+            # Debug counts
+            with_logo = len(logo_map)
+            with_stream = len(stream_map)
+            both = len(set(logo_map.keys()) & set(stream_map.keys()))
+
+            # Build filtered channel list
+            filtered = []
+            for c in channels:
+                cid = c.get("id")
+                if not cid:
+                    continue
+                logo = logo_map.get(cid)
+                stream = stream_map.get(cid)
+                if not logo or not stream:
+                    continue
+
+                if country and c.get("country") != country.upper():
+                    continue
+                if category:
+                    cats = [cat.lower() for cat in c.get("categories", [])]
+                    if category.lower() not in cats:
+                        continue
+
+                filtered.append({
+                    "id": cid,
+                    "name": c.get("name"),
+                    "country": c.get("country"),
+                    "categories": c.get("categories", []),
+                    "logo": logo,
+                    "website": c.get("website"),
+                    "streamUrl": stream,
+                })
+
+            filtered.sort(key=lambda x: x["name"].lower() if x.get("name") else "")
+
+            return {
+                "success": True,
+                "debug": {
+                    "channels_with_logo": with_logo,
+                    "channels_with_stream": with_stream,
+                    "channels_with_both": both,
+                    "final_count": len(filtered),
+                },
+                "data": filtered[:600],
+                "total": len(filtered),
+            }
+    except Exception as e:
+        import traceback
+        return {"success": False, "error": str(e), "trace": traceback.format_exc(), "data": []}
+
+
+@router.get("/iptv/streams")
+async def get_iptv_streams():
+    """Get stream URLs for IPTV channels"""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get("https://iptv-org.github.io/api/streams.json")
+            data = resp.json()
+
+            streams = {}
+            for s in data:
+                channel_id = s.get("channel")
+                if not channel_id or s.get("status") != "online":
+                    continue
+                # Keep first online stream per channel
+                if channel_id not in streams:
+                    streams[channel_id] = {
+                        "url": s.get("url"),
+                        "quality": s.get("quality"),
+                    }
+
+            return {"success": True, "data": streams}
+    except Exception as e:
+        return {"success": False, "error": str(e), "data": {}}
+
+
+@router.get("/iptv/categories")
+async def get_iptv_categories():
+    """Get IPTV categories (news, sports, music, etc.)"""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get("https://iptv-org.github.io/api/categories.json")
+            return {"success": True, "data": resp.json()}
+    except Exception as e:
+        return {"success": False, "error": str(e), "data": []}
